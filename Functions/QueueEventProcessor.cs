@@ -2,10 +2,13 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using TelemetryPipeline.Models;
+using TelemetryPipeline.Services;
 
 namespace TelemetryPipeline.Functions;
 
-public sealed class QueueEventProcessor(ILogger<QueueEventProcessor> logger)
+public sealed class QueueEventProcessor(
+    ILogger<QueueEventProcessor> logger,
+    RollingZScoreAnomalyDetector anomalyDetector)
 {
     private static readonly SemaphoreSlim FileWriteLock = new(1, 1);
 
@@ -37,6 +40,7 @@ public sealed class QueueEventProcessor(ILogger<QueueEventProcessor> logger)
             throw new InvalidDataException("Queue message is missing required telemetry fields.");
         }
 
+        AnomalyResult? anomalyResult = anomalyDetector.Evaluate(eventPayload);
         ProcessedEvent processedEvent = new()
         {
             EventId = eventPayload.EventId,
@@ -44,6 +48,8 @@ public sealed class QueueEventProcessor(ILogger<QueueEventProcessor> logger)
             EventType = eventPayload.EventType,
             PayloadData = eventPayload.PayloadData,
             Timestamp = eventPayload.Timestamp,
+            IsAnomaly = anomalyResult?.IsAnomaly,
+            AnomalyZScore = anomalyResult?.ZScore,
             LogId = Guid.NewGuid(),
             ProcessedAtUtc = DateTimeOffset.UtcNow
         };

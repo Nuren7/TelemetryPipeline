@@ -53,7 +53,9 @@ Invoke-RestMethod `
   -Body $event
 ```
 
-A valid request receives `202 Accepted` with its `EventId`. Missing or invalid fields receive `400 Bad Request`. Once the queue-triggered function processes the event, `local-database.json` contains a new line with the original event fields plus `LogId`, `ProcessedAtUtc`, and `SchemaVersion`.
+A valid request receives `202 Accepted` with its `EventId`. Missing or invalid fields receive `400 Bad Request`. Once the queue-triggered function processes the event, `local-database.json` contains a new line with the original event fields plus `LogId`, `ProcessedAtUtc`, `SchemaVersion`, `IsAnomaly`, and `AnomalyZScore`.
+
+The enrichment step checks numeric `PayloadData.value` values with a rolling z-score, maintaining a separate baseline for each source system and event type. It compares each value with up to the previous 30 values, starts flagging after at least 5 baseline values, and marks values with an absolute z-score of 3 or more as anomalies. `IsAnomaly` and `AnomalyZScore` are `null` for non-numeric or not-yet-warmed-up metrics; the z-score is also `null` when the baseline has zero variance. The in-memory baseline is local to each Functions worker and resets when that worker restarts.
 
 ## Provision Azure infrastructure with Terraform
 
